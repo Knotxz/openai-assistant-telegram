@@ -4,6 +4,7 @@ use async_openai::types::CreateThreadRequestArgs;
 use async_openai::types::CreateMessageRequestArgs;
 use async_openai::types::CreateRunRequestArgs;
 use async_openai::types::MessageContent;
+use async_openai::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
 
 async fn create_client() -> Client {
