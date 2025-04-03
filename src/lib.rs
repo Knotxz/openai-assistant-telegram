@@ -11,8 +11,13 @@ async fn create_client() -> Client<OpenAIConfig> {
     let mut headers = HeaderMap::new();
     headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
 
-    let config = OpenAIConfig::default(); // No `with_headers`, since it's incorrect
-    Client::with_config(config)
+    let config = OpenAIConfig::default(); // Create the default config
+    let client = Client::with_config(config);
+
+    // Set the headers for the client
+    client.set_headers(headers);
+
+    client
 }
 use flowsnet_platform_sdk::logger;
 use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
