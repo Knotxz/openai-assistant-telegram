@@ -193,13 +193,16 @@ async fn run_message(thread_id: &str, text: String) -> String {
                 .await
                 .unwrap();
 
-            let c = thread_messages["data"].as_array().unwrap().last().unwrap();
-            let c = c["content"].as_array().unwrap().iter().filter_map(|x| match x {
-                MessageContent::Text(t) => Some(t["text"]["value"].as_str().unwrap().to_string()),
-                _ => None,
-            });
-
-            c.collect::<Vec<String>>().join("\n")
+            // Assuming thread_messages["data"] is an array of messages
+            let messages = thread_messages["data"].as_array().unwrap();
+            if let Some(last_message) = messages.last() {
+                if let Some(content) = last_message.get("content") {
+                    if let Some(text_content) = content.as_str() {
+                        return text_content.to_string();
+                    }
+                }
+            }
+            return String::from("No messages found.");
         }
     }
 }
