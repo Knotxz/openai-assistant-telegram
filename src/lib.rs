@@ -1,4 +1,4 @@
-use async_openai::{types::{CreateMessageRequestArgs, CreateRunRequestArgs, CreateThreadRequestArgs, MessageContent,RunStatus,}};
+use async_openai::types::{CreateMessageRequestArgs, CreateRunRequestArgs, CreateThreadRequestArgs, MessageContent, RunStatus};
 use flowsnet_platform_sdk::logger;
 use reqwest::header::{HeaderMap, HeaderValue};
 use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
@@ -55,29 +55,25 @@ async fn handler(update: tg_flows::Update) {
 }
 
 async fn create_thread() -> String {
-    // Create a reqwest client
     let reqwest_client = reqwest::Client::new();
     let url = "https://api.openai.com/v1/threads"; // Adjust the URL as needed
 
-    // Create the request body
     let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
 
-    // Create a new header map and insert the required header
     let mut headers = HeaderMap::new();
     headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
     headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
 
-    // Send the request
     let response = reqwest_client
         .post(url)
         .headers(headers)
-        .json(&create_thread_request) // Adjust the request body as needed
+        .json(&create_thread_request)
         .send()
         .await
         .unwrap();
 
     if response.status().is_success() {
-        let thread: ThreadResponse = response.json().await.unwrap(); // Deserialize the response
+        let thread: ThreadResponse = response.json().await.unwrap();
         log::info!("New thread (ID: {}) created.", thread.id);
         thread.id
     } else {
@@ -86,16 +82,13 @@ async fn create_thread() -> String {
 }
 
 async fn delete_thread(thread_id: &str) {
-    // Create a reqwest client
     let reqwest_client = reqwest::Client::new();
-    let url = format!("https://api.openai.com/v1/threads/{}", thread_id); // Adjust the URL as needed
+    let url = format!("https://api.openai.com/v1/threads/{}", thread_id);
 
-    // Create a new header map and insert the required header
     let mut headers = HeaderMap::new();
     headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
     headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
 
-    // Send the request
     let response = reqwest_client
         .delete(&url)
         .headers(headers)
@@ -112,36 +105,31 @@ async fn delete_thread(thread_id: &str) {
 
 async fn run_message(thread_id: &str, text: String) -> String {
     let reqwest_client = reqwest::Client::new();
-    let url = format!("https://api.openai.com/v1/threads/{}/messages", thread_id); // Adjust the URL as needed
+    let url = format!("https://api.openai.com/v1/threads/{}/messages", thread_id);
     let assistant_id = std::env::var("ASSISTANT_ID").unwrap();
 
-    // Create the message request
     let mut create_message_request = CreateMessageRequestArgs::default().build().unwrap();
     create_message_request.content = text;
 
-    // Create a new header map and insert the required header
     let mut headers = HeaderMap::new();
     headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
     headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
 
-    // Send the message
     let _ = reqwest_client
         .post(&url)
-        .headers(headers.clone()) // Clone the headers for this request
+        .headers(headers.clone())
         .json(&create_message_request)
         .send()
         .await
         .unwrap();
 
-    // Create a run request
     let run_url = format!("https://api.openai.com/v1/threads/{}/runs", thread_id);
     let mut create_run_request = CreateRunRequestArgs::default().build().unwrap();
     create_run_request.assistant_id = assistant_id;
 
-    // Send the run request
     let run_response = reqwest_client
         .post(&run_url)
-        .headers(headers.clone()) // Clone the headers for this request
+        .headers(headers.clone())
         .json(&create_run_request)
         .send()
         .await
@@ -158,7 +146,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
         let run_status_url = format!("https://api.openai.com/v1/threads/{}/runs/{}", thread_id, run_id);
         let run_object = reqwest_client
             .get(&run_status_url)
-            .headers(headers.clone()) // Clone the headers for this request
+            .headers(headers.clone())
             .send()
             .await
             .unwrap()
@@ -196,12 +184,12 @@ async fn run_message(thread_id: &str, text: String) -> String {
                 .unwrap();
 
             let c = thread_messages["data"].as_array().unwrap().last().unwrap();
-            let c = c["content"].as_array().unwrap().iter().filter_map(|x| match x {
-                MessageContent::Text(t) => Some(t["text"]["value"].as_str().unwrap().to_string()),
-                _ => None,
-            });
-
-            c.collect::<Vec<String>>().join("\n")
+            if let Some(content) = c.get("content") {
+                if let Some(text_content) = content.as_str() {
+                    return text_content.to_string();
+                }
+            }
+            return String::from("No messages found.");
         }
     }
 }
