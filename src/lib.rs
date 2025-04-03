@@ -6,19 +6,6 @@ use async_openai::types::CreateRunRequestArgs;
 use async_openai::types::MessageContent;
 use async_openai::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
-
-async fn create_client() -> Client<OpenAIConfig> {
-    let mut headers = HeaderMap::new();
-    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
-
-    let config = OpenAIConfig::default(); // Create the default config
-    let client = Client::with_config(config);
-
-    // Set the headers for the client
-    client.set_headers(headers);
-
-    client
-}
 use flowsnet_platform_sdk::logger;
 use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
 
@@ -73,7 +60,10 @@ async fn create_thread() -> String {
 
     let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
 
-    match client.threads().create(create_thread_request).await {
+    // Create the request with headers
+    let response = client.threads().create(create_thread_request).await;
+
+    match response {
         Ok(to) => {
             log::info!("New thread (ID: {}) created.", to.id);
             to.id
