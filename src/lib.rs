@@ -144,7 +144,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
         Some(r) => String::from(r),
         None => {
             // Retrieve the last message from the thread
-            let thread_messages = client
+            let mut thread_messages = client
                 .threads()
                 .messages(thread_id)
                 .list(&[("limit", "1")])
