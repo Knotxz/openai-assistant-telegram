@@ -1,4 +1,5 @@
 use async_openai::config::OpenAIConfig;
+use async_openai::types::RunStatus;
 use reqwest::header::{HeaderMap, HeaderValue};
 
 async fn create_client() -> Client {
