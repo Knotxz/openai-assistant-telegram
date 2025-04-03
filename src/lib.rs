@@ -127,7 +127,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
     // Send the message
     let _ = reqwest_client
         .post(&url)
-        .headers(headers)
+        .headers(headers.clone()) // Clone the headers for this request
         .json(&create_message_request)
         .send()
         .await
@@ -141,12 +141,13 @@ async fn run_message(thread_id: &str, text: String) -> String {
     // Send the run request
     let run_response = reqwest_client
         .post(&run_url)
-        .headers(headers)
+        .headers(headers.clone()) // Clone the headers for this request
         .json(&create_run_request)
         .send()
         .await
         .unwrap();
 
+    // Store the run_id in a variable
     let run_id = run_response.json::<serde_json::Value>().await.unwrap()["id"].as_str().unwrap();
 
     // Poll for the run status
@@ -156,7 +157,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
         let run_status_url = format!("https://api.openai.com/v1/threads/{}/runs/{}", thread_id, run_id);
         let run_object = reqwest_client
             .get(&run_status_url)
-            .headers(headers.clone()) // Use the same headers
+            .headers(headers.clone()) // Clone the headers for this request
             .send()
             .await
             .unwrap()
@@ -177,6 +178,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
         };
         break;
     }
+
     match result {
         Some(r) => String::from(r),
         None => {
@@ -192,16 +194,13 @@ async fn run_message(thread_id: &str, text: String) -> String {
                 .await
                 .unwrap();
 
-            // Assuming thread_messages["data"] is an array of messages
-            let messages = thread_messages["data"].as_array().unwrap();
-            if let Some(last_message) = messages.last() {
-                if let Some(content) = last_message.get("content") {
-                    if let Some(text_content) = content.as_str() {
-                        return text_content.to_string();
-                    }
-                }
-            }
-            return String::from("No messages found.");
+            let c = thread_messages["data"].as_array().unwrap().last().unwrap();
+            let c = c["content"].as_array().unwrap().iter().filter_map(|x| match x {
+                MessageContent::Text(t) => Some(t["text"]["value"].as_str().unwrap().to_string()),
+                _ => None,
+            });
+
+            c.collect::<Vec<String>>().join("\n")
         }
     }
 }
