@@ -7,11 +7,11 @@ use async_openai::types::MessageContent;
 use async_openai::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
 
-async fn create_client() -> Client {
+async fn create_client() -> Client<OpenAIConfig> {
     let mut headers = HeaderMap::new();
     headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
 
-    let config = OpenAIConfig::default().with_headers(headers);
+    let config = OpenAIConfig::default(); // No `with_headers`, since it's incorrect
     Client::with_config(config)
 }
 use flowsnet_platform_sdk::logger;
@@ -64,7 +64,7 @@ async fn handler(update: tg_flows::Update) {
 }
 
 async fn create_thread() -> String {
-    let client = create_client().await;;
+    let client = create_client().await;
 
     let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
 
@@ -80,7 +80,7 @@ async fn create_thread() -> String {
 }
 
 async fn delete_thread(thread_id: &str) {
-    let client = create_client().await;;
+    let client = create_client().await;
 
     match client.threads().delete(thread_id).await {
         Ok(_) => {
@@ -93,7 +93,7 @@ async fn delete_thread(thread_id: &str) {
 }
 
 async fn run_message(thread_id: &str, text: String) -> String {
-    let client = create_client().await;;
+    let client = create_client().await;
     let assistant_id = std::env::var("ASSISTANT_ID").unwrap();
 
     let mut create_message_request = CreateMessageRequestArgs::default().build().unwrap();
