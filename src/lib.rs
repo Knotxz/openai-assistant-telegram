@@ -58,11 +58,16 @@ async fn handler(update: tg_flows::Update) {
 }
 
 async fn create_thread() -> String {
-    let client = create_openai_client();
+    let client = Client::new();
 
     let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
 
-    match client.threads().create(create_thread_request).await {
+    // Create a new header map and insert the required headers
+    let mut headers = HeaderMap::new();
+    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
+    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
+
+    match client.threads().create(create_thread_request).headers(headers).await {
         Ok(to) => {
             log::info!("New thread (ID: {}) created.", to.id);
             to.id
@@ -74,9 +79,14 @@ async fn create_thread() -> String {
 }
 
 async fn delete_thread(thread_id: &str) {
-    let client = create_openai_client();
+    let client = Client::new();
 
-    match client.threads().delete(thread_id).await {
+    // Create a new header map and insert the required headers
+    let mut headers = HeaderMap::new();
+    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
+    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
+
+    match client.threads().delete(thread_id).headers(headers).await {
         Ok(_) => {
             log::info!("Old thread (ID: {}) deleted.", thread_id);
         }
@@ -87,30 +97,38 @@ async fn delete_thread(thread_id: &str) {
 }
 
 async fn run_message(thread_id: &str, text: String) -> String {
-    let client = create_openai_client();
+    let client = Client::new();
     let assistant_id = std::env::var("ASSISTANT_ID").unwrap();
 
     let mut create_message_request = CreateMessageRequestArgs::default().build().unwrap();
     create_message_request.content = text;
+
+    // Create a new header map and insert the required headers
+    let mut headers = HeaderMap::new();
+    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
+    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
 
     // Send the message
     client
         .threads()
         .messages(thread_id)
         .create(create_message_request)
+        .headers(headers.clone()) // Clone the headers for this request
         .await
         .unwrap();
 
     let mut create_run_request = CreateRunRequestArgs::default().build().unwrap();
     create_run_request.assistant_id = assistant_id;
 
-    let run_id = client
+    let run_response = client
         .threads()
         .runs(thread_id)
         .create(create_run_request)
+        .headers(headers.clone()) // Clone the headers for this request
         .await
-        .unwrap()
-        .id;
+        .unwrap();
+
+    let run_id = run_response.id;
 
     let mut result = Some("Timeout");
     for _ in 0..5 {
@@ -119,6 +137,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
             .threads()
             .runs(thread_id)
             .retrieve(run_id.as_str())
+            .headers(headers.clone()) // Clone the headers for this request
             .await
             .unwrap();
         result = match run_object.status {
@@ -141,6 +160,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
                 .threads()
                 .messages(thread_id)
                 .list(&[("limit", "1")])
+                .headers(headers) // Use the same headers
                 .await
                 .unwrap();
 
@@ -153,13 +173,4 @@ async fn run_message(thread_id: &str, text: String) -> String {
             c.collect()
         }
     }
-}
-
-// Function to create an OpenAI client with the required headers
-fn create_openai_client() -> Client {
-    let mut headers = HeaderMap::new();
-    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
-    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
-
-    Client::with_headers(headers) // Assuming the Client has a method to set headers
 }
