@@ -81,11 +81,6 @@ async fn create_thread() -> String {
 async fn delete_thread(thread_id: &str) {
     let client = Client::new();
 
-    // Create a new header map and insert the required headers
-    let mut headers = HeaderMap::new();
-    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
-    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
-
     match client.threads().delete(thread_id).await {
         Ok(_) => {
             log::info!("Old thread (ID: {}) deleted.", thread_id);
@@ -102,11 +97,6 @@ async fn run_message(thread_id: &str, text: String) -> String {
 
     let mut create_message_request = CreateMessageRequestArgs::default().build().unwrap();
     create_message_request.content = text;
-
-    // Create a new header map and insert the required headers
-    let mut headers = HeaderMap::new();
-    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
-    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
 
     // Send the message
     client
@@ -154,26 +144,20 @@ async fn run_message(thread_id: &str, text: String) -> String {
         Some(r) => String::from(r),
         None => {
             // Retrieve the last message from the thread
-            let messages_url = format!("https://api.openai.com/v1/threads/{}/messages", thread_id);
             let thread_messages = client
-                .get(&messages_url)
-                .headers(headers) // Use the same headers
-                .send()
-                .await
-                .unwrap()
-                .json::<serde_json::Value>()
+                .threads()
+                .messages(thread_id)
+                .list(&[("limit", "1")])
                 .await
                 .unwrap();
 
-            let messages = thread_messages["data"].as_array().unwrap();
-            if let Some(last_message) = messages.last() {
-                if let Some(content) = last_message.get("content") {
-                    if let Some(text_content) = content.get("text") {
-                        return text_content["value"].as_str().unwrap().to_string();
-                    }
-                }
-            }
-            return String::from("No messages found.");
+            let c = thread_messages.data.pop().unwrap();
+            let c = c.content.into_iter().filter_map(|x| match x {
+                MessageContent::Text(t) => Some(t.text.value),
+                _ => None,
+            });
+
+            c.collect()
         }
     }
 }
