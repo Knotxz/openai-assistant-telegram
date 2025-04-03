@@ -137,14 +137,14 @@ async fn run_message(thread_id: &str, text: String) -> String {
     match result {
         Some(r) => String::from(r),
         None => {
-            let thread_messages = client
+            let mut thread_messages = client
                 .threads()
                 .messages(thread_id)
                 .list(&[("limit", "1")])
                 .await
                 .unwrap();
 
-            let c = thread_messages.data.pop().unwrap();
+          let c = thread_messages.data.pop().unwrap();
             let c = c.content.into_iter().filter_map(|x| match x {
                 MessageContent::Text(t) => Some(t.text.value),
                 _ => None,
