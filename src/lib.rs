@@ -1,4 +1,4 @@
-use async_openai::{types::{CreateMessageRequestArgs, CreateRunRequestArgs, CreateThreadRequestArgs, MessageContent,RunStatus,}
+use async_openai::{types::{CreateMessageRequestArgs, CreateRunRequestArgs, CreateThreadRequestArgs, MessageContent,RunStatus,}};
 use flowsnet_platform_sdk::logger;
 use reqwest::header::{HeaderMap, HeaderValue};
 use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
