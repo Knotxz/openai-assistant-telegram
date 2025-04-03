@@ -151,7 +151,7 @@ async fn run_message(thread_id: &str, text: String) -> String {
                 .await
                 .unwrap();
 
-            let c = thread_messages.data.pop().unwrap();
+            let mut c = thread_messages.data.pop().unwrap();
             let c = c.content.into_iter().filter_map(|x| match x {
                 MessageContent::Text(t) => Some(t.text.value),
                 _ => None,
