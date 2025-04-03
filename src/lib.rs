@@ -177,7 +177,6 @@ async fn run_message(thread_id: &str, text: String) -> String {
         };
         break;
     }
-
     match result {
         Some(r) => String::from(r),
         None => {
