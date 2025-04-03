@@ -1,4 +1,4 @@
-use async_openai_wasi::types::{RunStatus, CreateMessageRequestArgs, CreateRunRequestArgs, MessageContent};
+use async_openai::types::{RunStatus, CreateMessageRequestArgs, CreateRunRequestArgs, MessageContent, CreateThreadRequestArgs};
 use flowsnet_platform_sdk::logger;
 use reqwest::header::{HeaderMap, HeaderValue};
 use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
@@ -60,7 +60,7 @@ async fn create_thread() -> String {
     let url = "https://api.openai.com/v1/threads"; // Adjust the URL as needed
 
     // Create the request body
-    let create_thread_request = async_openai_wasi::types::CreateThreadRequestArgs::default().build().unwrap();
+    let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
 
     // Create a new header map and insert the required header
     let mut headers = HeaderMap::new();
