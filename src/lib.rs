@@ -1,3 +1,101 @@
+use async_openai::{
+    types::{CreateMessageRequestArgs, CreateRunRequestArgs, CreateThreadRequestArgs, MessageContent, RunStatus},
+    Client,
+};
+use flowsnet_platform_sdk::logger;
+use reqwest::header::{HeaderMap, HeaderValue};
+use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct ThreadResponse {
+    id: String,
+    // Add other fields as necessary based on the API response
+}
+
+#[no_mangle]
+#[tokio::main(flavor = "current_thread")]
+pub async fn on_deploy() {
+    logger::init();
+
+    let telegram_token = std::env::var("telegram_token").unwrap();
+    listen_to_update(telegram_token).await;
+}
+
+#[update_handler]
+async fn handler(update: tg_flows::Update) {
+    logger::init();
+    let telegram_token = std::env::var("telegram_token").unwrap();
+    let tele = Telegram::new(telegram_token);
+
+    if let UpdateKind::Message(msg) = update.kind {
+        let text = msg.text().unwrap_or("");
+        let chat_id = msg.chat.id;
+
+        let thread_id = match store_flows::get(chat_id.to_string().as_str()) {
+            Some(ti) => match text == "/restart" {
+                true => {
+                    delete_thread(ti.as_str().unwrap()).await;
+                    store_flows::del(chat_id.to_string().as_str());
+                    return;
+                }
+                false => ti.as_str().unwrap().to_owned(),
+            },
+            None => {
+                let ti = create_thread().await;
+                store_flows::set(
+                    chat_id.to_string().as_str(),
+                    serde_json::Value::String(ti.clone()),
+                    None,
+                );
+                ti
+            }
+        };
+
+        let response = run_message(thread_id.as_str(), String::from(text)).await;
+        _ = tele.send_message(chat_id, response);
+    }
+}
+
+async fn create_thread() -> String {
+    let client = Client::new();
+
+    let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
+
+    // Create a new header map and insert the required headers
+    let mut headers = HeaderMap::new();
+    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
+    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
+
+    match client.threads().create(create_thread_request).await {
+        Ok(to) => {
+            log::info!("New thread (ID: {}) created.", to.id);
+            to.id
+        }
+        Err(e) => {
+            panic!("Failed to create thread. {:?}", e);
+        }
+    }
+}
+
+async fn delete_thread(thread_id: &str) {
+    let client = Client::new();
+
+    // Create a new header map and insert the required headers
+    let mut headers = HeaderMap::new();
+    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
+    headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", std::env::var("OPENAI_API_KEY").unwrap())).unwrap());
+
+    match client.threads().delete(thread_id).await {
+        Ok(_) => {
+            log::info!("Old thread (ID: {}) deleted.", thread_id);
+        }
+        Err(e) => {
+            log::error!("Failed to delete thread. {:?}", e);
+        }
+    }
+}
+
 async fn run_message(thread_id: &str, text: String) -> String {
     let client = Client::new();
     let assistant_id = std::env::var("ASSISTANT_ID").unwrap();
@@ -67,7 +165,6 @@ async fn run_message(thread_id: &str, text: String) -> String {
                 .await
                 .unwrap();
 
-            // Access the messages array
             let messages = thread_messages["data"].as_array().unwrap();
             if let Some(last_message) = messages.last() {
                 if let Some(content) = last_message.get("content") {
