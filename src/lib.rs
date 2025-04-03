@@ -1,10 +1,13 @@
-use async_openai::{
-    types::{
-        CreateMessageRequestArgs, CreateRunRequestArgs, CreateThreadRequestArgs, MessageContent,
-        RunStatus,
-    },
-    Client,
-};
+use async_openai::config::OpenAIConfig;
+use reqwest::header::{HeaderMap, HeaderValue};
+
+async fn create_client() -> Client {
+    let mut headers = HeaderMap::new();
+    headers.insert("OpenAI-Beta", HeaderValue::from_static("assistants=v2"));
+
+    let config = OpenAIConfig::default().with_headers(headers);
+    Client::with_config(config)
+}
 use flowsnet_platform_sdk::logger;
 use tg_flows::{listen_to_update, update_handler, Telegram, UpdateKind};
 
@@ -55,7 +58,7 @@ async fn handler(update: tg_flows::Update) {
 }
 
 async fn create_thread() -> String {
-    let client = Client::new();
+    let client = create_client().await;;
 
     let create_thread_request = CreateThreadRequestArgs::default().build().unwrap();
 
@@ -71,7 +74,7 @@ async fn create_thread() -> String {
 }
 
 async fn delete_thread(thread_id: &str) {
-    let client = Client::new();
+    let client = create_client().await;;
 
     match client.threads().delete(thread_id).await {
         Ok(_) => {
@@ -84,7 +87,7 @@ async fn delete_thread(thread_id: &str) {
 }
 
 async fn run_message(thread_id: &str, text: String) -> String {
-    let client = Client::new();
+    let client = create_client().await;;
     let assistant_id = std::env::var("ASSISTANT_ID").unwrap();
 
     let mut create_message_request = CreateMessageRequestArgs::default().build().unwrap();
